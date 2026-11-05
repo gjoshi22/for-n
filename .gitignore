@@ -4,3 +4,4 @@ test/*.log
 test/dbg.js
 test/boot.js
 test/wishshot.js
+test/dbg2.js
