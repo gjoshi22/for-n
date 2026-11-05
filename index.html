@@ -494,9 +494,9 @@ const FROST = {
 };
 const DRIP = {
   none: { n: 'None' },
-  chocolate: { n: 'Chocolate', c: '#3a1c11' },
-  caramel: { n: 'Caramel', c: '#b4661d' },
-  matcha: { n: 'Matcha', c: '#7e9a46' },
+  chocolate: { n: 'Chocolate', c: '#2b140c' },
+  caramel: { n: 'Caramel', c: '#7a3c10' },
+  matcha: { n: 'Matcha', c: '#5e7533' },
 };
 const TOPS = {
   strawberry: { n: 'Strawberry', pl: 'strawberries' },
@@ -619,6 +619,10 @@ TEX.frostBump = canvasTex(512, 256, (g, w, h) => {
   for (let i = 0; i < 4000; i++) { g.fillStyle = `rgba(${R() > 0.5 ? 255 : 0},${R() > 0.5 ? 255 : 0},${R() > 0.5 ? 255 : 0},${R() * 0.06})`; g.fillRect(R() * w, R() * h, 2, 2); }
 }, { srgb: false, repeat: true });
 TEX.frostBump.repeat.set(5, 1);
+TEX.ripple = canvasTex(256, 256, (g, w, h) => {
+  const R = mulberry(19); g.fillStyle = '#808080'; g.fillRect(0, 0, w, h);
+  for (let i = 0; i < 26; i++) { const x = R() * w, y = R() * h, rr = 20 + R() * 90; const gr = g.createRadialGradient(x, y, 0, x, y, rr); const k = R() > 0.5 ? 255 : 0; gr.addColorStop(0, `rgba(${k},${k},${k},.10)`); gr.addColorStop(1, 'rgba(128,128,128,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); }
+}, { srgb: false, repeat: true });
 TEX.soft = canvasTex(64, 64, (g, w, h) => { const gr = g.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, 'rgba(255,255,255,1)'); gr.addColorStop(0.4, 'rgba(255,255,255,.5)'); gr.addColorStop(1, 'rgba(255,255,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
 TEX.glow = canvasTex(128, 128, (g, w, h) => { const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64); gr.addColorStop(0, 'rgba(255,214,150,.95)'); gr.addColorStop(0.18, 'rgba(255,170,80,.5)'); gr.addColorStop(0.5, 'rgba(255,120,40,.12)'); gr.addColorStop(1, 'rgba(255,100,20,0)'); g.fillStyle = gr; g.fillRect(0, 0, w, h); });
 TEX.berry = canvasTex(256, 256, (g, w, h) => {
@@ -746,9 +750,11 @@ function frostProfile(r, h) {
 }
 function fixLatheU(geo, ps, pl) { const uv = geo.attributes.uv; for (let i = 0; i < uv.count; i++) uv.setX(i, (ps + uv.getX(i) * pl) / (Math.PI * 2)); return geo; }
 const W0 = -Math.PI / 6, WL = Math.PI / 3; // wedge: 60° facing +z
-function frostGeo(r, wedge) {
-  const ps = wedge ? W0 : W0 + WL, pl = wedge ? WL : Math.PI * 2 - WL;
-  return fixLatheU(new THREE.LatheGeometry(frostProfile(r, TIER_H), wedge ? 20 : 100, ps, pl), ps, pl);
+// part: 'full' (360°, used while the slice is closed so there are no seams), 'main' (300°) or 'wedge' (60°)
+const partRange = part => part === 'full' ? [Math.PI, Math.PI * 2] : part === 'wedge' ? [W0, WL] : [W0 + WL, Math.PI * 2 - WL];
+function frostGeo(r, part) {
+  const [ps, pl] = partRange(part);
+  return fixLatheU(new THREE.LatheGeometry(frostProfile(r, TIER_H), part === 'wedge' ? 20 : part === 'full' ? 120 : 100, ps, pl), ps, pl);
 }
 function capGeo(r) {
   const s = new THREE.Shape(); const p = frostProfile(r, TIER_H); s.moveTo(0, 0); p.forEach(v => s.lineTo(v.x, v.y)); s.lineTo(0, 0);
@@ -760,27 +766,44 @@ function dripFn(seed) {
   for (let i = 0; i < n; i++) d.push({ c: (i / n) * Math.PI * 2 + R() * 0.25, w: 0.1 + R() * 0.13, l: 0.05 + R() * 0.2 });
   return { drips: d, L(ph) { let L = 0.022; for (const q of d) { let x = ph - q.c; x = Math.atan2(Math.sin(x), Math.cos(x)) / q.w; if (Math.abs(x) < 1) { const b = Math.pow(Math.cos(x * Math.PI / 2), 2); L = Math.max(L, 0.022 + q.l * b); } } return L; } };
 }
-function dripGeo(r, seed, wedge) {
-  const h = TIER_H, ps = wedge ? W0 : W0 + WL, pl = wedge ? WL : Math.PI * 2 - WL;
-  const F = dripFn(seed); const nu = Math.max(10, Math.ceil(pl / (Math.PI * 2) * 240)), nv = 10;
+function dripGeo(r, seed, part) {
+  const h = TIER_H, [ps, pl] = partRange(part), segs = part === 'wedge' ? 20 : 120;
+  const F = dripFn(seed); const nu = Math.max(10, Math.ceil(pl / (Math.PI * 2) * 260)), nv = 12;
   const pos = [], idx = [];
   for (let i = 0; i <= nu; i++) {
     const ph = ps + pl * i / nu, len = F.L(ph), sx = Math.sin(ph), cz = Math.cos(ph);
-    for (let j = 0; j <= nv; j++) { const v = j / nv; const y = h - 0.012 - v * len; const off = 0.014 * Math.sqrt(Math.max(0, 1 - Math.pow(v, 6))) + 0.003; pos.push(sx * (r + off), y, cz * (r + off)); }
+    for (let j = 0; j <= nv; j++) { const v = j / nv; const y = h - 0.006 - v * len; const off = 0.011 * Math.sqrt(Math.max(0, 1 - Math.pow(v, 5))) + 0.0025; pos.push(sx * (r + off), y, cz * (r + off)); }
   }
   for (let i = 0; i < nu; i++) for (let j = 0; j < nv; j++) { const a = i * (nv + 1) + j, b = (i + 1) * (nv + 1) + j; idx.push(a, a + 1, b, b, a + 1, b + 1); }
   const sheet = new THREE.BufferGeometry(); sheet.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); sheet.setIndex(idx); sheet.computeVertexNormals();
-  const top = new THREE.LatheGeometry([V2(r + 0.017, h - 0.012), V2(r + 0.0165, h - 0.002), V2(r + 0.008, h + 0.009), V2(r - 0.03, h + 0.014), V2(0.0001, h + 0.015)], wedge ? 20 : 100, ps, pl);
+  // thin, softly domed ganache cap with a rolled lip (reads as poured, not as a flat disk)
+  const capP = [V2(r + 0.0135, h - 0.006), V2(r + 0.014, h + 0.0005), V2(r + 0.009, h + 0.0055), V2(r + 0.002, h + 0.0072), V2(r - 0.03, h + 0.0066), V2(r * 0.7, h + 0.0074), V2(r * 0.35, h + 0.0085), V2(0.0001, h + 0.009)];
+  const top = new THREE.LatheGeometry(capP, segs, ps, pl);
   const parts = [sheet, top];
   for (const q of F.drips) {
     let c = q.c % (Math.PI * 2); if (c > Math.PI) c -= Math.PI * 2;
     let rel = c - ps; rel = ((rel % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
     if (rel > pl || q.l < 0.1) continue;
-    const s = new THREE.SphereGeometry(0.019, 10, 8); s.scale(1, 1.25, 0.8);
-    s.translate(0, 0, 0); s.rotateY(c); const m = new THREE.Matrix4().makeTranslation(Math.sin(c) * (r + 0.006), h - 0.012 - F.L(c) + 0.012, Math.cos(c) * (r + 0.006)); s.applyMatrix4(m); parts.push(s);
+    const sp = new THREE.SphereGeometry(0.0145, 12, 9); sp.scale(1, 1.35, 0.75);
+    sp.rotateY(c); sp.applyMatrix4(new THREE.Matrix4().makeTranslation(Math.sin(c) * (r + 0.005), h - 0.006 - F.L(c) + 0.009, Math.cos(c) * (r + 0.005))); parts.push(sp);
   }
   parts.forEach(g => { g.deleteAttribute('uv'); if (!g.index) g.setIndex([...Array(g.attributes.position.count).keys()]); });
-  const geo = mergeGeometries(parts.map(g => g.index ? g : g), false); geo.translate(0, -h, 0); return geo;
+  const geo = mergeGeometries(parts, false);
+  // planar UVs for the ripple bump
+  const P = geo.attributes.position, uv = new Float32Array(P.count * 2);
+  for (let k = 0; k < P.count; k++) { uv[k * 2] = P.getX(k) / (2 * r) + 0.5; uv[k * 2 + 1] = P.getZ(k) / (2 * r) + 0.5 + P.getY(k) * 0.6; }
+  geo.setAttribute('uv', new THREE.BufferAttribute(uv, 2));
+  geo.translate(0, -h, 0); return geo;
+}
+// piped pearl border at the base of a tier, split so the wedge part slides with the slice
+const pearlGeo = new THREE.SphereGeometry(1, 14, 10);
+function pearlBorder(r, mat, wedge) {
+  const R = r + 0.016, n = Math.round(Math.PI * 2 * R / 0.037), pts = [];
+  for (let k = 0; k < n; k++) { const a = (k + 0.5) / n * Math.PI * 2; const d = Math.atan2(Math.sin(a), Math.cos(a)); const inW = Math.abs(d) < WL / 2; if (inW === wedge) pts.push(a); }
+  const im = new THREE.InstancedMesh(pearlGeo, mat, pts.length); const R2 = mulberry(Math.round(r * 1000));
+  const q = new THREE.Quaternion(), sc = new THREE.Vector3(), ps = new THREE.Vector3(), mx = new THREE.Matrix4(), up = new THREE.Vector3(0, 1, 0);
+  pts.forEach((a, k) => { const s = 0.0215 * (0.94 + R2() * 0.1); q.setFromAxisAngle(up, a + R2()); sc.set(s, s * 0.82, s); ps.set(Math.sin(a) * R, s * 0.72, Math.cos(a) * R); im.setMatrixAt(k, mx.compose(ps, q, sc)); });
+  im.castShadow = true; im.receiveShadow = true; im.instanceMatrix.needsUpdate = true; return im;
 }
 
 const rayTargets = new Set();
@@ -791,13 +814,17 @@ class Tier {
     this.main = new THREE.Group(); this.wedge = new THREE.Group(); this.group.add(this.main, this.wedge); cakeRoot.add(this.group);
     this.frostMat = M('MeshPhysicalMaterial', { color: '#ffffff', roughness: 0.6, clearcoat: 0.12, clearcoatRoughness: 0.5, bumpMap: TEX.frostBump, bumpScale: 1.4, sheen: 0.45, sheenRoughness: 0.6, sheenColor: new THREE.Color('#ffffff'), envMapIntensity: 0.8 });
     this.capMat = M('MeshStandardMaterial', { roughness: 0.92, side: THREE.DoubleSide, envMapIntensity: 0.5 });
-    this.dripMat = M('MeshPhysicalMaterial', { color: '#3a1c11', roughness: 0.13, clearcoat: 1, clearcoatRoughness: 0.06, envMapIntensity: 1.2 });
-    for (const [grp, wedge] of [[this.main, 1], [this.wedge, 0]].map(([g, w]) => [g, !w])) {
-      const m = new THREE.Mesh(frostGeo(this.r, wedge), this.frostMat); m.castShadow = m.receiveShadow = true; m.userData = { t: i, w: wedge ? 1 : 0, tier: this }; grp.add(m); rayTargets.add(m);
+    this.dripMat = M('MeshPhysicalMaterial', { color: '#2b140c', roughness: 0.3, clearcoat: 0.8, clearcoatRoughness: 0.16, bumpMap: TEX.ripple, bumpScale: 0.6, sheen: 0.2, sheenRoughness: 0.4, sheenColor: new THREE.Color('#ffd7b0'), envMapIntensity: 0.8 });
+    this.split = []; // meshes only shown while sliced (no seams when closed)
+    for (const [grp, wedge] of [[this.main, false], [this.wedge, true]]) {
+      const m = new THREE.Mesh(frostGeo(this.r, wedge ? 'wedge' : 'main'), this.frostMat); m.castShadow = m.receiveShadow = true; m.userData = { t: i, w: wedge ? 1 : 0, tier: this }; grp.add(m); rayTargets.add(m); this.split.push(m);
       const a0 = wedge ? W0 : W0 + WL, a1 = wedge ? W0 + WL : W0 + Math.PI * 2;
-      for (const a of [a0, a1]) { const c = new THREE.Mesh(capGeo(this.r), this.capMat); c.rotation.y = a - Math.PI / 2; c.receiveShadow = true; grp.add(c); }
+      for (const a of [a0, a1]) { const c = new THREE.Mesh(capGeo(this.r), this.capMat); c.rotation.y = a - Math.PI / 2; c.receiveShadow = true; grp.add(c); this.split.push(c); }
+      grp.add(pearlBorder(this.r, this.frostMat, wedge));
     }
-    this.dripGroups = []; this.cur = {};
+    this.full = new THREE.Mesh(frostGeo(this.r, 'full'), this.frostMat); this.full.castShadow = this.full.receiveShadow = true;
+    this.full.userData = { t: i, w: -1, tier: this }; this.group.add(this.full); rayTargets.add(this.full);
+    this.dripGroups = []; this.dripFull = null; this.dripSplit = []; this.cur = {}; this.opening = false;
   }
   apply(t, first) {
     if (t.fr !== this.cur.fr) {
@@ -807,24 +834,31 @@ class Tier {
     if (t.sp !== this.cur.sp || t.fr !== this.cur.fr) { this.capMat.map = spongeTex(t.sp, t.fr, this.r); this.capMat.needsUpdate = true; }
     if (t.dr !== this.cur.dr) {
       this.dripGroups.forEach(g => { g.traverse(o => rayTargets.delete(o)); gsap.to(g.scale, { y: 0.01, duration: 0.35, ease: 'power2.in', onComplete: () => g.parent && g.parent.remove(g) }); });
-      this.dripGroups = [];
+      this.dripGroups = []; this.dripFull = null; this.dripSplit = [];
       if (t.dr !== 'none') {
         this.dripMat.color.set(DRIP[t.dr].c);
-        for (const [grp, wedge] of [[this.main, false], [this.wedge, true]]) {
-          const g = new THREE.Group(); g.position.y = TIER_H; const m = new THREE.Mesh(dripGeo(this.r, this.i + 1, wedge), this.dripMat);
-          m.castShadow = true; m.receiveShadow = true; m.userData = { t: this.i, w: wedge ? 1 : 0, tier: this }; g.add(m); grp.add(g); rayTargets.add(m); this.dripGroups.push(g);
+        for (const [grp, part] of [[this.main, 'main'], [this.wedge, 'wedge'], [this.group, 'full']]) {
+          const g = new THREE.Group(); g.position.y = TIER_H; const m = new THREE.Mesh(dripGeo(this.r, this.i + 1, part), this.dripMat);
+          m.castShadow = true; m.receiveShadow = true; m.userData = { t: this.i, w: part === 'wedge' ? 1 : part === 'full' ? -1 : 0, tier: this }; g.add(m); grp.add(g); rayTargets.add(m); this.dripGroups.push(g);
+          if (part === 'full') this.dripFull = m; else this.dripSplit.push(m);
           if (!first) { g.scale.y = 0.02; gsap.to(g.scale, { y: 1, duration: 1.1, ease: 'power2.out' }); }
         }
       }
+      this.vis();
     }
     this.cur = { ...t };
   }
+  vis() { const sp = !!(this.sliced || this.opening); this.split.forEach(m => m.visible = sp); this.dripSplit.forEach(m => m.visible = sp); this.full.visible = !sp; if (this.dripFull) this.dripFull.visible = !sp; }
   setSlice(on, instant) {
     if (this.sliced === on) return; this.sliced = on;
     const d = { z: on ? this.r * 0.62 : 0, ry: on ? 0.12 : 0 };
-    if (instant) { this.wedge.position.z = d.z; this.wedge.rotation.y = d.ry; return; }
-    gsap.to(this.wedge.position, { z: d.z, duration: on ? 1.0 : 0.8, ease: on ? 'expo.out' : 'power3.inOut', delay: this.i * 0.06 });
-    gsap.to(this.wedge.rotation, { y: d.ry, duration: 1.0, ease: 'expo.out', delay: this.i * 0.06 });
+    gsap.killTweensOf(this.wedge.position); gsap.killTweensOf(this.wedge.rotation);
+    if (instant) { this.wedge.position.z = d.z; this.wedge.rotation.y = d.ry; this.opening = false; this.vis(); return; }
+    // swap to the split meshes before sliding out; swap back to the seamless one once fully closed
+    this.opening = true; this.vis();
+    const done = () => { this.opening = false; this.vis(); };
+    gsap.to(this.wedge.position, { z: d.z, duration: on ? 1.0 : 0.8, ease: on ? 'expo.out' : 'power3.inOut', delay: this.i * 0.06, onComplete: on ? null : done });
+    gsap.to(this.wedge.rotation, { y: d.ry, duration: on ? 1.0 : 0.8, ease: on ? 'expo.out' : 'power3.inOut', delay: this.i * 0.06 });
   }
   drop() {
     const y = this.i * TIER_H;
@@ -1240,7 +1274,9 @@ function setRay(x, y) { const r = renderer.domElement.getBoundingClientRect(); n
 function decorHit(x, y) {
   setRay(x, y); const hits = ray.intersectObjects([...rayTargets, standMesh], false);
   for (const h of hits) {
+    if (!h.object.visible) continue; // Raycaster does not skip invisible meshes
     const n = h.face.normal.clone().transformDirection(h.object.matrixWorld);
+    if (h.object.userData.w === -1) { const T = h.object.userData.tier; const lp = T.group.worldToLocal(h.point.clone()); return { point: h.point, n, obj: h.object, t: T.i, w: Math.abs(Math.atan2(lp.x, lp.z)) < WL / 2 ? 1 : 0 }; }
     if (h.object === standMesh) { const rr = Math.hypot(h.point.x, h.point.z); if (n.y < 0.7 || rr > 1.55 || rr < (S.tiers.length ? tierR(0) - 0.02 : 0)) return null; }
     return { point: h.point, n, obj: h.object, t: h.object.userData.t, w: h.object.userData.w };
   }
