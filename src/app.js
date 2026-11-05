@@ -123,6 +123,21 @@ const Sound = (() => {
     const s = noise(); const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
     const g = ctx.createGain(); env(g, t, 0.004, peak, dur); s.connect(f); f.connect(g); out(g, wet); s.start(t, Math.random()); s.stop(t + dur + 0.1);
   }
+  function voice(type, f, { attack = 0.006, dur = 1, peak = 0.05, wet = 0.4, delay = 0, detune = 0, lp = 0 } = {}) {
+    if (!ctx) return; const t = ctx.currentTime + delay;
+    const o = ctx.createOscillator(); o.type = type; o.frequency.setValueAtTime(f, t); o.detune.value = detune;
+    const g = ctx.createGain(); env(g, t, attack, peak, dur);
+    if (lp) { const fl = ctx.createBiquadFilter(); fl.type = 'lowpass'; fl.frequency.value = lp; o.connect(fl); fl.connect(g); } else o.connect(g);
+    out(g, wet); o.start(t); o.stop(t + attack + dur + 0.1);
+  }
+  // soft noise swell (breath / flare) with a slow attack
+  function swell(freq, q, attack, dur, peak, { type = 'bandpass', delay = 0, wet = 0.25 } = {}) {
+    if (!ctx) return; const t = ctx.currentTime + delay;
+    const s = noise(); const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+    const g = ctx.createGain(); env(g, t, attack, peak, dur); s.connect(f); f.connect(g); out(g, wet); s.start(t, Math.random()); s.stop(t + attack + dur + 0.1);
+  }
+  const chime = (f, peak = 0.03, delay = 0) => { voice('sine', f, { attack: 0.004, dur: 1.6, peak, wet: 0.65, delay }); voice('sine', f * 2.76, { attack: 0.002, dur: 0.35, peak: peak * 0.18, wet: 0.6, delay }); };
+  const PENTA = [76, 79, 81, 83, 86, 88, 91, 93, 95, 98];
   const mtof = m => 440 * Math.pow(2, (m - 69) / 12);
   return {
     init, get ctx() { return ctx; }, get muted() { return muted; },
@@ -130,13 +145,17 @@ const Sound = (() => {
     tick() { tone('sine', 1900, 1100, 0.035, 0.06, { wet: 0 }); },
     pop() { tone('sine', 760, 190, 0.13, 0.32, { wet: 0.15 }); burst(2600, 1.2, 0.025, 0.1, { wet: 0 }); },
     thud(soft) { tone('sine', soft ? 220 : 140, soft ? 90 : 50, soft ? 0.18 : 0.38, soft ? 0.25 : 0.55, { wet: 0.2 }); burst(420, 0.8, 0.1, soft ? 0.1 : 0.22); },
-    strike() { burst(3800, 0.7, 0.16, 0.5, { type: 'highpass' }); burst(1300, 1.4, 0.55, 0.22, { delay: 0.07 }); tone('sine', 95, 60, 0.6, 0.14, { delay: 0.07 }); },
-    ignite() { burst(950, 0.9, 0.22, 0.2, { wet: 0.25 }); tone('sine', 320, 560, 0.16, 0.05); },
+    // match: a dry scratch across the strip, then a soft flare — no low thump
+    strike() { for (let i = 0; i < 5; i++) burst(3200 + Math.random() * 2200, 1.2, 0.03, 0.16 + Math.random() * 0.08, { type: 'bandpass', delay: i * 0.028, wet: 0.02 }); swell(2200, 0.6, 0.06, 0.55, 0.09, { delay: 0.12, wet: 0.3 }); },
+    // candle catching: a breathy "fff" plus a quiet glass chime that climbs with each candle
+    ignite(n = 0) { swell(2600, 0.5, 0.03, 0.32, 0.045, { wet: 0.3 }); chime(mtof(PENTA[n % PENTA.length]), 0.028, 0.04); },
     puff() { burst(650, 0.6, 0.45, 0.3, { type: 'lowpass', wet: 0.2 }); },
     shutter() { burst(5200, 1, 0.025, 0.6, { wet: 0 }); burst(3000, 1, 0.045, 0.4, { delay: 0.09, wet: 0 }); },
+    // celebration: harp glissando up a Cmaj9, a warm pad blooming underneath, a few sparkles on top
     chord() {
-      [523.25, 659.25, 783.99, 987.77, 1174.66].forEach((f, i) => { tone('triangle', f, 0, 2.6, 0.08, { wet: 0.6, delay: i * 0.07 }); tone('sine', f * 2, 0, 1.1, 0.022, { wet: 0.6, delay: i * 0.07 }); });
-      tone('sine', 130.81, 0, 2.8, 0.16, { wet: 0.4 });
+      [48, 55, 60, 64, 67, 71, 74, 76, 79, 83, 86, 88].forEach((m, i) => { const f = mtof(m), d = i * 0.06; voice('triangle', f, { attack: 0.003, dur: 2.4, peak: 0.05, wet: 0.55, delay: d, lp: 3200 }); voice('sine', f * 2, { attack: 0.003, dur: 0.9, peak: 0.012, wet: 0.55, delay: d }); });
+      [48, 55, 64, 71].forEach(m => { voice('sine', mtof(m), { attack: 0.7, dur: 3.4, peak: 0.035, wet: 0.5, detune: -6, delay: 0.25 }); voice('sine', mtof(m), { attack: 0.7, dur: 3.4, peak: 0.035, wet: 0.5, detune: 6, delay: 0.25 }); });
+      for (let i = 0; i < 7; i++) chime(mtof(PENTA[3 + Math.floor(Math.random() * 7)] + 12), 0.012, 0.8 + i * 0.17 + Math.random() * 0.1);
     },
     kiss() { burst(1900, 2.5, 0.05, 0.5, { wet: 0.1 }); tone('sine', 520, 1150, 0.11, 0.16, { delay: 0.03 }); burst(820, 4, 0.09, 0.22, { delay: 0.05 }); },
     paper() { for (let i = 0; i < 16; i++) burst(2400 + Math.random() * 1400, 3, 0.03, 0.06, { delay: i * 0.12, wet: 0 }); },
@@ -150,8 +169,9 @@ const Sound = (() => {
       // "Happy Birthday to You" — public domain melody
       const N = [[67, .75], [67, .25], [69, 1], [67, 1], [72, 1], [71, 2], [67, .75], [67, .25], [69, 1], [67, 1], [74, 1], [72, 2],
         [67, .75], [67, .25], [79, 1], [76, 1], [72, 1], [71, 1], [69, 2], [77, .75], [77, .25], [76, 1], [72, 1], [74, 1], [72, 3]];
-      let t = 0; const beat = 0.38;
-      N.forEach(([m, d]) => { const f = mtof(m + 12); tone('sine', f, 0, 1.4, 0.07, { wet: 0.55, delay: t }); tone('sine', f * 3, 0, 0.3, 0.012, { wet: 0.5, delay: t }); t += d * beat; });
+      // music-box timbre: sine fundamental + bright inharmonic tine partials, soft bass on downbeats
+      let t = 0; const beat = 0.42; const bass = [48, 43, 43, 48, 48, 53, 48, 43, 48];
+      N.forEach(([m, d], i) => { const f = mtof(m + 12); voice('sine', f, { attack: 0.002, dur: 1.5, peak: 0.06, wet: 0.5, delay: t }); voice('sine', f * 2.76, { attack: 0.001, dur: 0.22, peak: 0.01, wet: 0.45, delay: t }); voice('sine', f * 5.4, { attack: 0.001, dur: 0.08, peak: 0.004, wet: 0.4, delay: t }); if (d >= 1 && i % 3 === 2) voice('sine', mtof(bass[(i / 3 | 0) % bass.length]), { attack: 0.01, dur: 1.2, peak: 0.03, wet: 0.3, delay: t }); t += d * beat; });
     },
   };
 })();
@@ -838,7 +858,7 @@ function igniteVisual(o, animate) {
   gsap.killTweensOf(f.userData); f.userData.alive = animate ? 0 : 1;
   if (animate) gsap.to(f.userData, { alive: 1, duration: 0.9, ease: 'elastic.out(1,0.4)' });
   if (o.wax) gsap.to(o.wax, { emissiveIntensity: 0.06, duration: 1 });
-  if (animate) Sound.ignite();
+  if (animate) Sound.ignite([...candleObjs.values()].filter(c => c.lit).length - 1);
 }
 function extinguishVisual(o, animate) {
   o.lit = false; const f = o.flame;
@@ -1119,21 +1139,11 @@ function allLit() {
 function showWish() {
   if (S.chapter !== 'light') return;
   $('#wishT').innerHTML = `Make a wish, <em>${CONFIG.name}</em>.`; $('#wishP').textContent = 'Close your eyes. Take your time.';
-  $('#micBtn').style.display = navigator.mediaDevices && navigator.mediaDevices.getUserMedia && window.isSecureContext ? '' : 'none';
   $('#wish').classList.add('show'); wishReady = true;
   setTimeout(() => { if (wishReady) { $('#wishP').style.opacity = 0; setTimeout(() => { $('#wishP').textContent = 'Now blow.'; $('#wishP').style.opacity = 1; }, 450); } }, 3200);
   act('wish', 'Is making a wish…'); Sync.state();
 }
 const Blow = { I: 0, hold: false, holdT: 0, analyser: null, stream: null, buf: null, floor: 0, cal: 0 };
-async function startMic() {
-  Sound.init();
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false } });
-    const src = Sound.ctx.createMediaStreamSource(stream); const an = Sound.ctx.createAnalyser(); an.fftSize = 1024; src.connect(an);
-    Blow.analyser = an; Blow.stream = stream; Blow.buf = new Float32Array(an.fftSize); Blow.cal = 0; Blow.floor = 0;
-    $('#micBtn span').textContent = 'Listening… blow!'; act('mic', 'Turned on the microphone'); Sync.state();
-  } catch (e) { $('#micBtn').style.display = 'none'; toast('No microphone access. Hold the button instead.'); }
-}
 function stopMic() { if (Blow.stream) Blow.stream.getTracks().forEach(t => t.stop()); Blow.stream = null; Blow.analyser = null; }
 function updateBlow(dt, t) {
   let target = 0;
@@ -1327,7 +1337,6 @@ function enterLight() {
   S.lit = []; S.out = false; matchState.lit = false; matchState.done = false; wishReady = false; Blow.I = 0;
   candleObjs.forEach(o => o.health = 1);
   const m = $('#match'); m.classList.remove('lit'); m.style.transform = ''; m.style.opacity = 1;
-  $('#micBtn span').textContent = 'Blow into the mic';
   setTimeout(() => $('#matchbox').classList.remove('away'), 600);
 }
 $('#next').addEventListener('click', () => { Sound.init(); Sound.tick(); const i = CHAPTERS.indexOf(S.chapter); if (i > -1 && i < 3) goto(CHAPTERS[i + 1]); });
@@ -1391,9 +1400,10 @@ window.addEventListener('pointerup', onUp); window.addEventListener('pointercanc
     setTimeout(() => { $('#matchbox').classList.add('away'); m.style.opacity = 0; moveMatchTo(e.clientX, e.clientY); controls.enabled = false; }, 260);
   }
 })();
-$('#holdBtn').addEventListener('pointerdown', e => { e.preventDefault(); Sound.init(); Blow.hold = true; Blow.holdT = 0; if (!Blow.usedHold) { Blow.usedHold = true; act('hold', 'Blowing (button)'); Sync.state(); } });
-['pointerup', 'pointercancel', 'pointerleave'].forEach(ev => $('#holdBtn').addEventListener(ev, () => { Blow.hold = false; }));
-$('#micBtn').addEventListener('click', () => { if (!Blow.analyser) startMic(); });
+let gustT = null, holdStart = 0;
+$('#holdBtn').addEventListener('pointerdown', e => { e.preventDefault(); Sound.init(); clearTimeout(gustT); Blow.hold = true; Blow.holdT = 0; holdStart = performance.now(); try { e.currentTarget.setPointerCapture(e.pointerId); } catch (er) {} if (!Blow.usedHold) { Blow.usedHold = true; act('hold', 'Blowing out the candles'); Sync.state(); } });
+// a quick tap still gives a short gust, so she doesn't need to know to hold
+['pointerup', 'pointercancel'].forEach(ev => $('#holdBtn').addEventListener(ev, () => { if (!Blow.hold) return; const held = performance.now() - holdStart; if (held < 900) gustT = setTimeout(() => { Blow.hold = false; }, 900 - held); else Blow.hold = false; }));
 $('#envelope').addEventListener('click', openLetter);
 $('#seeCake').addEventListener('click', () => { Sound.tick(); $('#finale').classList.remove('show'); $('#reopen').classList.add('show'); controls.enabled = true; });
 $('#openFin').addEventListener('click', () => { Sound.tick(); showFinale(); });

@@ -213,7 +213,9 @@ button:focus-visible{outline:1px solid var(--gold);outline-offset:4px}
 .wbtn{height:50px;padding:0 24px;border-radius:999px;font-size:11px;font-weight:400;letter-spacing:.2em;text-transform:uppercase;display:flex;align-items:center;gap:10px;position:relative;overflow:hidden}
 .wbtn.primary{background:var(--cream);color:#1a1112;font-weight:500}
 .wbtn.sec{color:var(--cream);border:1px solid var(--hair-2)}
-.wbtn .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(214,180,131,.25);pointer-events:none}
+.wbtn .fill{position:absolute;left:0;top:0;bottom:0;width:0;background:rgba(214,180,131,.45);pointer-events:none}
+.wbtn span:last-child{position:relative}
+#holdBtn{min-width:220px;justify-content:center;touch-action:none;-webkit-user-select:none;user-select:none}
 .wbtn svg{width:16px;height:16px}
 .meter{height:1px;background:var(--hair);margin:20px auto 0;width:56%;overflow:hidden}
 .meter i{display:block;height:100%;width:0;background:var(--gold);transition:width .08s linear}
@@ -379,8 +381,7 @@ body.spectator #foot, body.spectator #intro, body.spectator #matchbox, body.spec
     <h2 id="wishT">Make a wish, <em>Noush</em>.</h2>
     <p id="wishP">Close your eyes. Take your time.</p>
     <div class="wish-row">
-      <button class="wbtn primary" id="micBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21"/></svg><span>Blow into the mic</span></button>
-      <button class="wbtn sec" id="holdBtn"><span class="fill"></span><span>Hold to blow</span></button>
+      <button class="wbtn primary" id="holdBtn"><span class="fill"></span><span>Hold to blow</span></button>
     </div>
     <div class="meter"><i id="meter"></i></div>
   </div>
