@@ -167,13 +167,8 @@ TEX.marble = canvasTex(1024, 1024, (g, w, h) => {
     g.stroke();
   }
 }, { repeat: true });
-TEX.wood = canvasTex(512, 512, (g, w, h) => {
-  const R = mulberry(3); g.fillStyle = '#d9b08a'; g.fillRect(0, 0, w, h);
-  for (let y = 0; y < h; y += 2) { const k = Math.sin(y * 0.05 + Math.sin(y * 0.013) * 4) * 0.5 + 0.5; g.fillStyle = `rgba(${150 + k * 50},${100 + k * 40},${70 + k * 25},${0.1 + R() * 0.08})`; g.fillRect(0, y, w, 2); }
-  for (let i = 0; i < 40; i++) { g.strokeStyle = `rgba(120,70,40,${0.05 + R() * 0.07})`; g.lineWidth = 1; g.beginPath(); const y0 = R() * h; g.moveTo(0, y0); for (let x = 0; x <= w; x += 16) g.lineTo(x, y0 + Math.sin(x * 0.02 + i) * 3); g.stroke(); }
-}, { repeat: true });
-TEX.tableAlpha = canvasTex(256, 256, (g, w, h) => {
-  const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); gr.addColorStop(0, '#e6e6e6'); gr.addColorStop(0.28, '#b0b0b0'); gr.addColorStop(0.62, '#2a2a2a'); gr.addColorStop(1, '#000');
+TEX.floorAlpha = canvasTex(256, 256, (g, w, h) => {
+  const gr = g.createRadialGradient(w / 2, h / 2, 0, w / 2, h / 2, w / 2); gr.addColorStop(0, '#ffffff'); gr.addColorStop(0.22, '#d0d0d0'); gr.addColorStop(0.5, '#4a4a4a'); gr.addColorStop(0.8, '#0c0c0c'); gr.addColorStop(1, '#000');
   g.fillStyle = gr; g.fillRect(0, 0, w, h);
 }, { srgb: false });
 TEX.frostBump = canvasTex(512, 256, (g, w, h) => {
@@ -250,24 +245,27 @@ const envTex = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
 scene.environment = envTex;
 
 const camera = new THREE.PerspectiveCamera(30, innerWidth / innerHeight, 0.1, 80);
-camera.position.set(0, 3.6, 9.5);
+camera.position.set(0, 5.38, 10.44); // = frameFor("intro")
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.enableDamping = true; controls.dampingFactor = 0.05; controls.enablePan = false;
 controls.minPolarAngle = 0.32; controls.maxPolarAngle = 1.36; controls.minDistance = 3.2; controls.maxDistance = 13;
 controls.rotateSpeed = 0.65; controls.zoomSpeed = 0.7;
-controls.target.set(0, 0.4, 0);
+controls.target.set(0, 0.32, 0);
 controls.autoRotate = true; controls.autoRotateSpeed = 0.6;
 
 const MATS = new Set(); let envK = 1;
 function M(type, p = {}) { const env = p.envMapIntensity ?? 1; delete p.envMapIntensity; const m = new THREE[type](p); m.userData.env = env; if ('envMapIntensity' in m) m.envMapIntensity = env * envK; MATS.add(m); return m; }
 function setEnv(k) { envK = k; MATS.forEach(m => { if ('envMapIntensity' in m) m.envMapIntensity = m.userData.env * k; }); }
 
-const hemi = new THREE.HemisphereLight(0xfff2e8, 0x9a6650, 0.85); scene.add(hemi);
-const key = new THREE.DirectionalLight(0xfff0e0, 2.3); key.position.set(3.5, 7.5, 4.8); key.castShadow = true;
-key.shadow.mapSize.set(1024, 1024); Object.assign(key.shadow.camera, { left: -3.2, right: 3.2, top: 3.4, bottom: -3.2, near: 1, far: 22 });
-key.shadow.bias = -0.0004; key.shadow.normalBias = 0.025; key.shadow.radius = 5;
-key.target.position.set(0, 0.6, 0); scene.add(key, key.target);
-const rim = new THREE.DirectionalLight(0xffcfd8, 1.2); rim.position.set(-5, 4, -4.5); scene.add(rim);
+// After-hours lighting: one soft key spot from above-front, a warm rim from behind, almost no fill.
+const LIGHT = { hemi: 0.32, key: 300, rim: 2.4, rim2: 1.1, env: 0.5, exp: 1.05 };
+const hemi = new THREE.HemisphereLight(0xffeadb, 0x2a1a16, LIGHT.hemi); scene.add(hemi);
+const key = new THREE.SpotLight(0xfff0e0, LIGHT.key, 0, 0.36, 0.85, 2); key.position.set(2.2, 9.2, 5.6); key.castShadow = true;
+key.shadow.mapSize.set(1024, 1024); key.shadow.camera.near = 4; key.shadow.camera.far = 20;
+key.shadow.bias = -0.0003; key.shadow.normalBias = 0.02; key.shadow.radius = 6;
+key.target.position.set(0, 0.2, 0); scene.add(key, key.target);
+const rim = new THREE.DirectionalLight(0xffc796, LIGHT.rim); rim.position.set(-3.5, 3.2, -6); scene.add(rim);
+const rim2 = new THREE.DirectionalLight(0xffd9b8, LIGHT.rim2); rim2.position.set(4.5, 2.2, -4.5); scene.add(rim2);
 const candleSpot = new THREE.SpotLight(0xff9a3c, 0, 9, 1.32, 1, 1.4);
 candleSpot.castShadow = true; candleSpot.shadow.mapSize.set(512, 512); candleSpot.shadow.bias = -0.0006; candleSpot.shadow.normalBias = 0.03;
 candleSpot.shadow.camera.near = 0.05; scene.add(candleSpot, candleSpot.target);
@@ -279,9 +277,17 @@ const marbleMat = M('MeshPhysicalMaterial', { map: TEX.marble, roughness: 0.2, c
 const STAND_P = [[0.0001, -1.0], [0.78, -1.0], [0.81, -0.985], [0.79, -0.95], [0.52, -0.9], [0.24, -0.83], [0.15, -0.62], [0.135, -0.38], [0.18, -0.22], [0.42, -0.15], [1.48, -0.115], [1.62, -0.09], [1.65, -0.05], [1.62, -0.01], [1.56, 0], [0.0001, 0]];
 const standMesh = new THREE.Mesh(new THREE.LatheGeometry(STAND_P.map(p => new THREE.Vector2(p[0], p[1])), 96), marbleMat);
 standMesh.castShadow = true; standMesh.receiveShadow = true; standMesh.userData = { t: -1, w: 0 }; stand.add(standMesh);
-TEX.wood.repeat.set(3, 3);
-const table = new THREE.Mesh(new THREE.CircleGeometry(8, 64), M('MeshStandardMaterial', { map: TEX.wood, alphaMap: TEX.tableAlpha, transparent: true, roughness: 0.55, envMapIntensity: 0.6, depthWrite: false }));
-table.rotation.x = -Math.PI / 2; table.position.y = -1.0; table.receiveShadow = true; table.renderOrder = -1; scene.add(table);
+// gold rims at the plate edge and the foot (thin lathe bands that sit just proud of the marble)
+const goldMat = M('MeshPhysicalMaterial', { color: '#d9b886', metalness: 1, roughness: 0.26, clearcoat: 0.4, clearcoatRoughness: 0.2, envMapIntensity: 2.2 });
+const GOLD_RIMS = [
+  [[1.605, -0.094], [1.64, -0.084], [1.662, -0.062], [1.668, -0.045], [1.662, -0.028], [1.64, -0.008], [1.6, 0.002]],
+  [[0.776, -1.001], [0.806, -0.996], [0.822, -0.984], [0.818, -0.968], [0.8, -0.952], [0.79, -0.948]],
+  [[0.17, -0.236], [0.192, -0.226], [0.196, -0.214], [0.188, -0.204], [0.17, -0.198]],
+];
+GOLD_RIMS.forEach(P => { const g = new THREE.Mesh(new THREE.LatheGeometry(P.map(p => new THREE.Vector2(p[0], p[1])), 128), goldMat); g.castShadow = true; g.receiveShadow = true; stand.add(g); });
+// dark floor: catches the spotlight pool and the shadow, fades to transparent so it melts into the CSS backdrop
+const floor = new THREE.Mesh(new THREE.CircleGeometry(9, 72), M('MeshStandardMaterial', { color: '#3a2a27', alphaMap: TEX.floorAlpha, transparent: true, roughness: 0.82, metalness: 0, envMapIntensity: 0.15, depthWrite: false }));
+floor.rotation.x = -Math.PI / 2; floor.position.y = -1.0; floor.receiveShadow = true; floor.renderOrder = -1; scene.add(floor);
 
 const cakeRoot = new THREE.Group(); scene.add(cakeRoot);
 const candleRoot = new THREE.Group(); scene.add(candleRoot);
@@ -741,8 +747,8 @@ const matchTarget = new THREE.Vector3();
    ===================================================================== */
 const AMB = { night: 0, candle: 0 };
 function applyAmb() {
-  const n = AMB.night; hemi.intensity = lerp(0.85, 0.05, n); key.intensity = lerp(2.3, 0.03, n); rim.intensity = lerp(1.2, 0.1, n);
-  setEnv(lerp(1, 0.1, n)); renderer.toneMappingExposure = lerp(1.0, 1.12, n);
+  const n = AMB.night; hemi.intensity = lerp(LIGHT.hemi, 0.012, n); key.intensity = lerp(LIGHT.key, 0, n); rim.intensity = lerp(LIGHT.rim, 0.06, n); rim2.intensity = lerp(LIGHT.rim2, 0, n);
+  setEnv(lerp(LIGHT.env, 0.025, n)); renderer.toneMappingExposure = lerp(LIGHT.exp, 1.15, n);
 }
 let nightOn = false;
 function setNight(on, dur = 1.8) {
@@ -760,11 +766,11 @@ function frameFor(ch) {
   const n = Math.max(1, S.tiers.length), H = n * TIER_H, asp = innerWidth / innerHeight;
   const k = Math.max(1, 1.45 / asp) * (innerWidth < 700 ? 1.15 : 1);
   const F = {
-    intro: { r: 9.8, phi: 1.12, ty: 0.25 },
+    intro: { r: 11.6, phi: 1.12, ty: 0.32 },
     bake: { r: 7.2 + n * 0.45, phi: 1.13, ty: H * 0.5 - 0.15 },
     decorate: { r: 6.2 + n * 0.4, phi: 1.02, ty: H * 0.55 },
-    candles: { r: 5.0 + n * 0.35, phi: 0.86, ty: H * 0.85 },
-    light: { r: 4.4 + n * 0.32, phi: 1.0, ty: H * 0.9 + 0.1 },
+    candles: { r: 6.0 + n * 0.4, phi: 0.88, ty: H * 0.8 },
+    light: { r: 5.8 + n * 0.4, phi: 1.02, ty: H * 0.85 + 0.1 },
     finale: { r: 6.4 + n * 0.45, phi: 1.08, ty: H * 0.55 },
   }[ch] || { r: 7, phi: 1.1, ty: H * 0.5 };
   return { ...F, r: F.r * k, front: ch === 'candles' || ch === 'light' || ch === 'finale' };
@@ -983,7 +989,7 @@ function capture() {
   const side = Math.min(W, H) * 0.8; let cx = (ctr.x * 0.5 + 0.5) * W, cy = (1 - (ctr.y * 0.5 + 0.5)) * H;
   let sx = clamp(cx - side / 2, 0, W - side), sy = clamp(cy - side / 2, 0, H - side);
   const out = document.createElement('canvas'); out.width = out.height = 900; const g = out.getContext('2d');
-  const gr = g.createRadialGradient(450, 380, 40, 450, 450, 700); gr.addColorStop(0, '#fff4ec'); gr.addColorStop(0.5, '#f3d3c7'); gr.addColorStop(1, '#d99d90');
+  const gr = g.createRadialGradient(450, 380, 40, 450, 450, 700); gr.addColorStop(0, '#3a2a27'); gr.addColorStop(0.5, '#241918'); gr.addColorStop(1, '#110b0c');
   g.fillStyle = gr; g.fillRect(0, 0, 900, 900); g.drawImage(c, sx, sy, side, side, 0, 0, 900, 900);
   return out.toDataURL('image/jpeg', 0.9);
 }
@@ -1077,10 +1083,10 @@ function renderDock(anim = true) {
     const cur = S.tiers[S.sel] || {};
     if (UI.bakeTab === 'tiers') {
       const n = S.tiers.length;
-      P = `<div class="stack-ico">${S.tiers.map((t, i) => `<i style="width:${20 + (3 - i) * 13}px;background:${FROST[t.fr].c};box-shadow:inset 0 -2px 0 rgba(0,0,0,.08)"></i>`).join('')}</div>
+      P = `<div class="stack-ico">${S.tiers.map((t, i) => `<i style="width:${20 + (3 - i) * 13}px;background:${FROST[t.fr].c};box-shadow:inset 0 -2px 0 rgba(0,0,0,.15)"></i>`).join('')}</div>
         <div class="stepper"><button class="round" data-act="tier-rem" aria-label="Remove a tier" ${n <= 1 ? 'disabled' : ''}>−</button>
-        <div class="val"><b>${n} tier${n > 1 ? 's' : ''}</b><small>${S.tiers.map((t, i) => TIER_IN[i] + '″').join(' · ')}</small></div>
-        <button class="round" data-act="tier-add" aria-label="Add a tier" ${n >= 4 ? 'disabled' : ''}>+</button></div><span class="vr"></span><div class="lbl" style="max-width:220px;line-height:1.5;text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;color:var(--ink-2)">Up to four tiers. Each one gets its own sponge, frosting and drip.</div>`;
+        <div class="val"><b>${['One tier', 'Two tiers', 'Three tiers', 'Four tiers'][n - 1]}</b><small>${S.tiers.map((t, i) => TIER_IN[i] + '″').join(' · ')}</small></div>
+        <button class="round" data-act="tier-add" aria-label="Add a tier" ${n >= 4 ? 'disabled' : ''}>+</button></div><span class="vr"></span><div class="aside">Up to four. Each one gets its own sponge, frosting and drip.</div>`;
     } else if (UI.bakeTab === 'sponge') {
       P = tierSeg() + Object.entries(SPONGE).filter(([k, v]) => !v.secret || UI.secretSponge).map(([k, v]) => swatch('sp', k, v.short || v.n.replace('Madagascar ', '').replace('Dark Valrhona ', 'Valrhona ').replace(' Green Tea', ''), v.c, cur.sp === k, 'crumb')).join('')
         + (UI.secretSponge ? '' : `<button class="sw-btn" data-act="secret-sponge"><span class="chip lock">✦</span><span>Secret menu</span></button>`);
@@ -1090,18 +1096,18 @@ function renderDock(anim = true) {
       P = tierSeg() + Object.entries(DRIP).map(([k, v]) => swatch('dr', k, v.n, v.c || '#fff', cur.dr === k, k === 'none' ? 'none' : '')).join('');
     }
   } else if (ch === 'decorate') {
-    T = tab('sweets', 'Sweets', UI.decoTab) + tab('piping', 'Piping bag', UI.decoTab) + tab('extra', '✦ Something extra', UI.decoTab, 'secret') + `<span class="sp"></span><button class="ghost" data-act="undo" ${UI.undo.some(u => u.type !== 'candle') ? '' : 'disabled'}>Undo</button>`;
+    T = tab('sweets', 'Sweets', UI.decoTab) + tab('piping', 'Piping bag', UI.decoTab) + tab('extra', 'Something extra ✦', UI.decoTab, 'secret') + `<span class="sp"></span><button class="ghost" data-act="undo" ${UI.undo.some(u => u.type !== 'candle') ? '' : 'disabled'}>Undo</button>`;
     if (UI.decoTab === 'sweets') P = ['strawberry', 'macaron', 'cherry', 'blueberry', 'gold'].map(k => toolBtn(k, TOPS[k].n, UI.tool === k)).join('');
-    else if (UI.decoTab === 'piping') P = PIPE.map((p, i) => toolBtn('pipe' + i, p.n, UI.tool === 'pipe' + i)).join('') + `<span class="vr"></span><div class="lbl" style="max-width:200px;line-height:1.5;text-transform:none;letter-spacing:0;font-size:13px;font-weight:500;color:var(--ink-2)">Drag a finger along the cake to pipe.</div>`;
+    else if (UI.decoTab === 'piping') P = PIPE.map((p, i) => toolBtn('pipe' + i, p.n, UI.tool === 'pipe' + i)).join('') + `<span class="vr"></span><div class="aside">Draw along the cake with a finger to pipe.</div>`;
     else P = ['latte', 'pick', 'vinyl'].map(k => toolBtn(k, TOPS[k].n, UI.tool === k)).join('');
   } else if (ch === 'candles') {
-    T = `<span class="tab on" style="cursor:default">Number candles</span><span class="sp"></span><button class="ghost" data-act="undo" ${UI.undo.length && UI.undo[UI.undo.length - 1].type === 'candle' ? '' : 'disabled'}>Undo</button>`;
+    T = `<span class="tab on" style="cursor:default">Candles</span><span class="sp"></span><button class="ghost" data-act="undo" ${UI.undo.length && UI.undo[UI.undo.length - 1].type === 'candle' ? '' : 'disabled'}>Undo</button>`;
     P = `<div class="digits">${[1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map(d => `<button class="digit" data-act="digit" data-v="${d}">${d}</button>`).join('')}</div><span class="vr"></span>`
       + `<button class="tool" data-act="taper">${THUMB.taper ? `<img src="${THUMB.taper}" alt="">` : '<span class="ph"></span>'}<span>Taper</span></button>`
       + `<button class="tool" data-act="spark">${THUMB.spark ? `<img src="${THUMB.spark}" alt="">` : '<span class="ph"></span>'}<span>Sparkler</span></button>`;
   }
   $('#tabs').innerHTML = T; const panel = $('#panel'); panel.innerHTML = P;
-  if (anim) { panel.classList.remove('fade'); void panel.offsetWidth; panel.classList.add('fade'); }
+  panel.classList.remove('fade'); if (anim) { void panel.offsetWidth; panel.classList.add('fade'); }
 }
 $('#dock').addEventListener('click', e => {
   const el = e.target.closest('[data-act]'); if (!el || SPECTATOR) return; const a = el.dataset.act, v = el.dataset.v; Sound.init();
@@ -1127,7 +1133,7 @@ function goto(ch) {
   if (ch === 'decorate' && !UI.tool) UI.tool = 'strawberry';
   updateSteps(); updateNext(); renderDock(); setHint(HINTS[ch] || '');
   $('#foot').classList.toggle('away', ch === 'light' || ch === 'finale' || ch === 'intro');
-  if (ch === 'bake' || ch === 'decorate' || ch === 'candles') setShift(Math.round(innerHeight * 0.09)); else setShift(0);
+  if (ch === 'bake' || ch === 'decorate' || ch === 'candles') setShift(Math.round(innerHeight * 0.09)); else if (ch === 'light') setShift(Math.round(innerHeight * 0.1)); else setShift(0);
   controls.autoRotate = false;
   frameCamera(ch);
   if (ch === 'light') enterLight();
