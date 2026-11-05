@@ -510,8 +510,14 @@ const TOPS = {
   pick: { n: 'Guitar pick', pl: 'guitar picks' },
   vinyl: { n: 'Vinyl', pl: 'vinyl records' },
   topper: { n: 'Topper', a: 'a Happy Birthday topper', pl: 'toppers' },
+  fig: { n: 'Fig', a: 'half a fig', pl: 'fig halves' },
+  orange: { n: 'Orange', a: 'an orange wheel', pl: 'orange wheels' },
+  heart: { n: 'Heart', a: 'a chocolate heart', pl: 'chocolate hearts' },
+  sprinkles: { n: 'Sprinkles', a: 'gold sprinkles', pl: 'pinches of gold sprinkles' },
+  pansy: { n: 'Pansy', pl: 'pansies' },
+  bow: { n: 'Satin bow', pl: 'satin bows' },
 };
-const SHELF = { fruit: ['strawberry', 'halfberry', 'raspberry', 'blueberry', 'cherry'], sweets: ['macaron', 'meringue', 'truffle', 'shard', 'dragee'], flora: ['rose', 'gold', 'mint'], extra: ['topper', 'latte', 'vinyl', 'pick'] };
+const SHELF = { fruit: ['strawberry', 'halfberry', 'raspberry', 'blueberry', 'cherry', 'fig', 'orange'], sweets: ['macaron', 'heart', 'meringue', 'truffle', 'shard', 'dragee', 'sprinkles'], flora: ['rose', 'pansy', 'gold', 'mint'], extra: ['topper', 'bow', 'latte', 'vinyl', 'pick'] };
 const PIPE = [
   { n: 'Ivory', c: '#f6ecda' }, { n: 'Rose', c: '#e7a3ad' }, { n: 'Pistachio', c: '#bcd096' }, { n: 'Cocoa', c: '#6a3e29' },
 ];
@@ -930,6 +936,31 @@ TEX.topper = canvasTex(1024, 256, topperDraw, { srgb: false });
 const fontsReady = document.fonts ? Promise.race([document.fonts.ready, wait(1800)]) : wait(0);
 fontsReady.then(() => { const c = TEX.topper.image; topperDraw(c.getContext('2d'), c.width, c.height); TEX.topper.needsUpdate = true; });
 
+const FIG_P = [[0.0001, 0], [0.03, 0.004], [0.05, 0.02], [0.056, 0.042], [0.05, 0.066], [0.034, 0.088], [0.016, 0.106], [0.009, 0.124], [0.0001, 0.13]];
+TEX.figCut = canvasTex(256, 256, (g, w, h) => {
+  const R0 = 0.056, H0 = 0.13, xy = (r, y, k = 1) => [w / 2 + (r / R0) * (w / 2) * k, h - (0.42 * H0 + (y - 0.42 * H0) * k) / H0 * h];
+  const outline = k => { g.beginPath(); FIG_P.forEach((p, i) => { const [x, y] = xy(p[0], p[1], k); i ? g.lineTo(x, y) : g.moveTo(x, y); }); for (let i = FIG_P.length - 1; i >= 0; i--) { const [x, y] = xy(-FIG_P[i][0], FIG_P[i][1], k); g.lineTo(x, y); } g.closePath(); };
+  g.fillStyle = '#4b2340'; g.fillRect(0, 0, w, h);
+  outline(0.93); g.fillStyle = '#f4e6d4'; g.fill();
+  outline(0.78); const gr = g.createRadialGradient(w / 2, h * 0.58, 6, w / 2, h * 0.58, w * 0.42); gr.addColorStop(0, '#f6c8b8'); gr.addColorStop(0.5, '#d9566a'); gr.addColorStop(1, '#b02848'); g.fillStyle = gr; g.fill();
+  const R = mulberry(77); for (let i = 0; i < 160; i++) { const a = R() * Math.PI * 2, d = Math.sqrt(R()) * w * 0.3; const x = w / 2 + Math.cos(a) * d * 0.85, y = h * 0.58 + Math.sin(a) * d; g.fillStyle = R() > 0.4 ? 'rgba(250,224,170,.9)' : 'rgba(120,20,40,.6)'; g.beginPath(); g.ellipse(x, y, 1.6, 2.6, a, 0, 7); g.fill(); }
+});
+TEX.citrus = canvasTex(256, 256, (g, w, h) => {
+  const c = w / 2; g.fillStyle = '#000'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#d4630e'; g.beginPath(); g.arc(c, c, c - 1, 0, 7); g.fill();
+  g.fillStyle = '#f6e6c8'; g.beginPath(); g.arc(c, c, c * 0.9, 0, 7); g.fill();
+  for (let i = 0; i < 11; i++) { const a0 = i / 11 * Math.PI * 2 + 0.03, a1 = (i + 1) / 11 * Math.PI * 2 - 0.03; const gr = g.createRadialGradient(c, c, 6, c, c, c * 0.84); gr.addColorStop(0, '#f8b34a'); gr.addColorStop(1, '#e87613'); g.fillStyle = gr; g.beginPath(); g.moveTo(c + Math.cos((a0 + a1) / 2) * 7, c + Math.sin((a0 + a1) / 2) * 7); g.arc(c, c, c * 0.83, a0, a1); g.closePath(); g.fill(); }
+  const R = mulberry(5); g.strokeStyle = 'rgba(255,230,170,.35)'; g.lineWidth = 1; for (let i = 0; i < 120; i++) { const a = R() * 6.28, d = 10 + R() * c * 0.7; g.beginPath(); g.moveTo(c + Math.cos(a) * d, c + Math.sin(a) * d); g.lineTo(c + Math.cos(a) * (d + 6), c + Math.sin(a) * (d + 6)); g.stroke(); }
+  g.fillStyle = '#f6e6c8'; g.beginPath(); g.arc(c, c, 6, 0, 7); g.fill();
+});
+TEX.pansy = canvasTex(256, 256, (g, w, h) => {
+  const c = w / 2; g.fillStyle = 'rgba(0,0,0,0)'; g.clearRect(0, 0, w, h);
+  const petal = (ang, len, wid, c0, c1) => { g.save(); g.translate(c, c); g.rotate(ang); const gr = g.createRadialGradient(0, 0, 4, 0, -len * 0.5, len); gr.addColorStop(0, c0); gr.addColorStop(1, c1); g.fillStyle = gr; g.beginPath(); g.ellipse(0, -len * 0.55, wid, len * 0.55, 0, 0, 7); g.fill(); g.restore(); };
+  petal(-0.55, 112, 52, '#3c1f5c', '#6b3e96'); petal(0.55, 112, 52, '#3c1f5c', '#6b3e96');
+  petal(-1.75, 96, 46, '#2a1240', '#f3e4a8'); petal(1.75, 96, 46, '#2a1240', '#f3e4a8'); petal(Math.PI, 104, 54, '#2a1240', '#f7eab6');
+  g.strokeStyle = 'rgba(40,16,60,.55)'; g.lineWidth = 1.5; for (let i = -6; i <= 6; i++) { g.beginPath(); g.moveTo(c, c); g.lineTo(c + i * 6, c + 46); g.stroke(); }
+  g.fillStyle = '#f2c230'; g.beginPath(); g.arc(c, c + 4, 10, 0, 7); g.fill();
+}, { srgb: true });
 const MAT = {
   berry: M('MeshPhysicalMaterial', { map: TEX.berry, bumpMap: TEX.berryBump, bumpScale: 2, roughness: 0.28, clearcoat: 0.9, clearcoatRoughness: 0.12 }),
   berryCut: M('MeshPhysicalMaterial', { map: TEX.halfBerry, roughness: 0.3, clearcoat: 0.8, clearcoatRoughness: 0.15, side: THREE.DoubleSide }),
@@ -955,10 +986,17 @@ const MAT = {
   pick: M('MeshPhysicalMaterial', { map: TEX.tortoise, roughness: 0.18, clearcoat: 1, clearcoatRoughness: 0.05 }),
   vinyl: M('MeshPhysicalMaterial', { map: TEX.vinyl, roughness: 0.32, clearcoat: 0.7, clearcoatRoughness: 0.2 }),
   vinylEdge: M('MeshStandardMaterial', { color: '#0d0b0c', roughness: 0.4 }),
+  figSkin: M('MeshPhysicalMaterial', { color: '#4b2340', roughness: 0.5, sheen: 0.8, sheenColor: new THREE.Color('#b890b8'), sheenRoughness: 0.5 }),
+  figCut: M('MeshPhysicalMaterial', { map: TEX.figCut, roughness: 0.45, clearcoat: 0.5, side: THREE.DoubleSide }),
+  citrusFace: M('MeshPhysicalMaterial', { map: TEX.citrus, roughness: 0.4, clearcoat: 0.6, clearcoatRoughness: 0.2 }),
+  citrusRind: M('MeshStandardMaterial', { color: '#c9590c', roughness: 0.5 }),
+  pansy: M('MeshPhysicalMaterial', { map: TEX.pansy, alphaTest: 0.5, roughness: 0.55, sheen: 0.6, sheenColor: new THREE.Color('#ffffff'), side: THREE.DoubleSide }),
   topper: M('MeshPhysicalMaterial', { color: '#f2cf8c', metalness: 1, roughness: 0.3, alphaMap: TEX.topper, alphaTest: 0.5, envMapIntensity: 3.4, emissive: new THREE.Color('#3a2508'), emissiveIntensity: 1 }),
 };
 const macMats = MAC_COLORS.map(c => M('MeshPhysicalMaterial', { color: c, roughness: 0.55, sheen: 0.6, sheenRoughness: 0.5, sheenColor: new THREE.Color('#ffffff') }));
 const macFill = ['#4a2318', '#fbf0e0', '#fbf0e0', '#b8304d'].map(c => M('MeshPhysicalMaterial', { color: c, roughness: 0.6, sheen: 0.3 }));
+const heartMats = ['#9e1028', '#3a1a10', '#d98a98'].map(c => M('MeshPhysicalMaterial', { color: c, roughness: 0.22, clearcoat: 1, clearcoatRoughness: 0.08 }));
+const bowMats = ['#d9a3a8', '#f2e6d6', '#1c1416'].map(c => M('MeshPhysicalMaterial', { color: c, roughness: 0.35, sheen: 1, sheenColor: new THREE.Color('#ffffff'), sheenRoughness: 0.25, side: THREE.DoubleSide }));
 const roseMats = ['#d98e9a', '#c46b7e', '#e8b0b4'].map(c => M('MeshPhysicalMaterial', { color: c, roughness: 0.62, sheen: 0.8, sheenColor: new THREE.Color('#fff0f0'), sheenRoughness: 0.5, side: THREE.DoubleSide }));
 
 function mesh(g, m, cast = true) { const o = new THREE.Mesh(g, m); o.castShadow = cast; o.receiveShadow = true; return o; }
@@ -1090,6 +1128,38 @@ function makeTopping(k, v = 0) {
     const top = mesh(face, MAT.vinyl, false); top.rotation.x = -Math.PI / 2; top.position.y = 0.0026;
     const bot = mesh(face, MAT.vinyl, false); bot.rotation.x = Math.PI / 2; bot.position.y = -0.0026;
     const piv = new THREE.Group(); piv.add(disc, top, bot); piv.rotation.x = -1.18; piv.position.y = 0.105; inner.add(piv);
+  } else if (k === 'fig') {
+    const [body, face] = gc('figh', () => {
+      const b = new THREE.LatheGeometry(FIG_P.map(p => V2(p[0], p[1])), 16, 0, Math.PI);
+      const sh = new THREE.Shape(); FIG_P.forEach((p, i) => i ? sh.lineTo(p[0], p[1]) : sh.moveTo(p[0], p[1])); for (let i = FIG_P.length - 2; i > 0; i--) sh.lineTo(-FIG_P[i][0], FIG_P[i][1]);
+      const f = new THREE.ShapeGeometry(sh, 8); const uv = f.attributes.uv, pos = f.attributes.position; for (let i = 0; i < uv.count; i++) uv.setXY(i, pos.getX(i) / 0.112 + 0.5, pos.getY(i) / 0.13);
+      f.rotateY(-Math.PI / 2); return [b, f];
+    });
+    const piv = new THREE.Group(); piv.add(mesh(body, MAT.figSkin), mesh(face, MAT.figCut, false));
+    piv.rotation.z = -Math.PI / 2; piv.position.set(-0.062, 0.048, 0);
+    const tilt = new THREE.Group(); tilt.add(piv); tilt.rotation.x = 0.4; inner.add(tilt);
+  } else if (k === 'orange') {
+    const g = gc('citrus', () => new THREE.CylinderGeometry(0.058, 0.058, 0.009, 40));
+    const m = mesh(g, [MAT.citrusRind, MAT.citrusFace, MAT.citrusFace]); m.rotation.set(Math.PI / 2 - 0.35, 0, 0.1); m.position.y = 0.05; inner.add(m);
+  } else if (k === 'heart') {
+    const g = gc('heart', () => { const sh = new THREE.Shape(); sh.moveTo(0, -0.04); sh.bezierCurveTo(0.012, -0.024, 0.05, -0.006, 0.048, 0.018); sh.bezierCurveTo(0.046, 0.042, 0.016, 0.046, 0, 0.026); sh.bezierCurveTo(-0.016, 0.046, -0.046, 0.042, -0.048, 0.018); sh.bezierCurveTo(-0.05, -0.006, -0.012, -0.024, 0, -0.04);
+      const e = new THREE.ExtrudeGeometry(sh, { depth: 0.01, bevelEnabled: true, bevelThickness: 0.006, bevelSize: 0.005, bevelSegments: 4, curveSegments: 20 }); e.translate(0, 0.036, -0.005); return e; });
+    const m = mesh(g, heartMats[v % heartMats.length]); m.rotation.x = -0.32; m.position.y = 0.004; inner.add(m);
+  } else if (k === 'sprinkles') {
+    const g = gc('sprk', () => { const R = mulberry(61), parts = []; for (let i = 0; i < 46; i++) { const c = new THREE.CylinderGeometry(0.0024, 0.0024, 0.012, 5); c.rotateZ(Math.PI / 2 + (R() - 0.5) * 0.3); c.rotateY(R() * 6.28); const a = R() * 6.28, d = Math.sqrt(R()) * 0.055; c.translate(Math.cos(a) * d, 0.003 + R() * 0.003, Math.sin(a) * d); parts.push(c); } return mergeGeometries(parts); });
+    inner.add(mesh(g, MAT.gold, false));
+  } else if (k === 'pansy') {
+    const g = gc('pansy', () => { const c = new THREE.CircleGeometry(0.06, 32, 0, Math.PI * 2); const P = c.attributes.position; for (let i = 0; i < P.count; i++) { const x = P.getX(i), y = P.getY(i), r = Math.hypot(x, y); P.setZ(i, r * r * 5 + Math.sin(Math.atan2(y, x) * 5) * r * 0.06); } c.computeVertexNormals(); c.rotateX(-Math.PI / 2); return c; });
+    const m = mesh(g, MAT.pansy); m.position.y = 0.008; m.rotation.x = -0.18; inner.add(m);
+  } else if (k === 'bow') {
+    const [loops, knot, tails] = gc('bow', () => {
+      const L = [-1, 1].map(sd => { const t = new THREE.TorusGeometry(0.032, 0.008, 8, 28); t.scale(1, 0.62, 0.42); t.translate(sd * 0.032, 0, 0); t.rotateZ(sd * 0.25); return t; });
+      const kn = new THREE.SphereGeometry(0.013, 14, 10); kn.scale(1, 1.1, 0.75);
+      const T = [-1, 1].map(sd => { const b = new THREE.BoxGeometry(0.016, 0.055, 0.003); b.translate(0, -0.028, 0); b.rotateZ(sd * 0.42); return b; });
+      return [mergeGeometries(L), kn, mergeGeometries(T)];
+    });
+    const mat = bowMats[v % bowMats.length]; const piv = new THREE.Group(); piv.add(mesh(loops, mat), mesh(knot, mat), mesh(tails, mat));
+    piv.rotation.x = -0.25; piv.position.y = 0.05; inner.add(piv);
   } else if (k === 'topper') {
     const sg = gc('topper', () => new THREE.PlaneGeometry(0.4, 0.1));
     const sign = mesh(sg, MAT.topper); sign.position.y = 0.175; const back = mesh(sg, MAT.topper); back.position.y = 0.175; back.rotation.y = Math.PI; back.position.z = -0.001; inner.add(back);
@@ -1109,7 +1179,7 @@ function syncTops(animate = true) {
   for (const t of S.tops) {
     const parent = parentFor(t.t, t.w); if (!parent) continue;
     let o = topObjs.get(t.id);
-    if (!o) { o = makeTopping(t.k, t.v); topObjs.set(t.id, o); parent.add(o); orient(o, t.p, t.n, t.r); if (animate) popIn(o); continue; }
+    if (!o) { o = makeTopping(t.k, t.v); o.userData.topId = t.id; topObjs.set(t.id, o); parent.add(o); orient(o, t.p, t.n, t.r); if (animate) popIn(o); continue; }
     if (o.parent !== parent) parent.add(o);
     orient(o, t.p, t.n, t.r);
   }
@@ -1249,6 +1319,7 @@ function makeCandle(c, idx) {
     g.add(w, co); wick = new THREE.Vector3(0, 0.5, 0); o.spark = true;
   }
   if (!o.spark) { const wk = mesh(wickGeo, wickMat, false); wk.position.copy(wick); g.add(wk); }
+  const hit = new THREE.Mesh(new THREE.CylinderGeometry(0.075, 0.075, wick.y + 0.06, 8).translate(wick.x, (wick.y + 0.06) / 2, 0), new THREE.MeshBasicMaterial()); hit.visible = false; hit.userData.cid = c.id; g.add(hit); o.hit = hit;
   o.wick = wick.clone().add(new THREE.Vector3(0, o.spark ? 0 : 0.04, 0));
   o.flame = makeFlame(o.spark ? 0.6 : 1); o.flame.position.copy(o.wick).add(new THREE.Vector3(0, o.spark ? 0 : -0.006, 0)); g.add(o.flame);
   if (o.spark) o.flame.userData.mat.uniforms.uSeed.value = 0;
@@ -1256,7 +1327,8 @@ function makeCandle(c, idx) {
 }
 function candleLayout() {
   const n = S.tiers.length || 1; const R = tierR(n - 1); let s = clamp(R / 0.72, 0.62, 1.1);
-  const digits = S.candles.filter(c => c.k === 'd'), others = S.candles.filter(c => c.k !== 'd');
+  const free = S.candles.filter(c => !c.pos); // candles she has dragged somewhere keep their spot
+  const digits = free.filter(c => c.k === 'd'), others = free.filter(c => c.k !== 'd');
   let dw = 0.25 * s; if (digits.length * dw > R * 1.5) { s *= (R * 1.5) / (digits.length * dw); dw = 0.25 * s; }
   const pos = new Map();
   digits.forEach((c, i) => pos.set(c.id, { x: (i - (digits.length - 1) / 2) * dw, z: others.length ? R * 0.1 : 0, s }));
@@ -1275,8 +1347,20 @@ function syncCandles(animate = true) {
     if (!candleObjs.has(c.id)) { const o = makeCandle(c, i); candleObjs.set(c.id, o); candleRoot.add(o.group); o.isNew = true; }
   });
   const L = candleLayout();
+  for (const c of S.candles) {
+    const o = candleObjs.get(c.id); if (!o || !c.pos) continue;
+    const parent = parentFor(c.pos.t, c.pos.w);
+    if (!parent) { delete c.pos; candleRoot.add(o.group); o.isNew = true; continue; } // its tier was removed: back to the auto layout
+    if (o.group.parent !== parent) parent.add(o.group);
+    const sc = c.s || 1, [x, y, z] = c.pos.p;
+    if (o.isNew) { o.isNew = false; o.group.scale.setScalar(sc); o.group.position.set(x, animate ? y + 1.2 : y, z); if (animate) gsap.to(o.group.position, { y, duration: 0.8, ease: 'elastic.out(1,0.6)' }); }
+    else if (o.dragging) { gsap.killTweensOf(o.group.position); o.group.position.set(x, y + 0.06, z); }
+    else gsap.to(o.group.position, { x, y, z, duration: 0.22, ease: 'power2.out' });
+    gsap.to(o.group.scale, { x: sc, y: sc, z: sc, duration: 0.3 });
+  }
   for (const [id, o] of candleObjs) {
     const p = L.get(id); if (!p) continue;
+    if (o.group.parent !== candleRoot) candleRoot.add(o.group);
     if (o.isNew) {
       o.isNew = false; o.group.position.set(p.x, animate ? 1.4 : 0, p.z); o.group.scale.setScalar(p.s);
       if (animate) { gsap.to(o.group.position, { y: 0, duration: 0.9, ease: 'elastic.out(1,0.55)' }); setTimeout(() => Sound.thud(true), 90); }
@@ -1432,6 +1516,15 @@ function decorHit(x, y) {
   }
   return null;
 }
+function pickTop(x, y) {
+  setRay(x, y); const hits = ray.intersectObjects([...topObjs.values()], true);
+  for (const h of hits) { let o = h.object; while (o && o.userData.topId === undefined) o = o.parent; if (o) { const t = S.tops.find(t => t.id === o.userData.topId); if (t) return t; } }
+  return null;
+}
+function pickCandle(x, y) {
+  setRay(x, y); const hits = ray.intersectObjects([...candleObjs.values()].map(o => o.hit), false);
+  return hits.length ? S.candles.find(c => c.id === hits[0].object.userData.cid) : null;
+}
 function hitToLocal(h) {
   const parent = parentFor(h.t, h.w); if (!parent) return null;
   const lp = parent.worldToLocal(h.point.clone()); const wq = new THREE.Quaternion(); parent.getWorldQuaternion(wq); const ln = h.n.clone().applyQuaternion(wq.invert());
@@ -1490,6 +1583,16 @@ function placeTop(h) {
   reconcile(); Sync.state(); return t;
 }
 function moveTop(t, h) { const L = hitToLocal(h); if (!L) return; Object.assign(t, L); syncTops(); Sync.state(); }
+// dragged off the cake = ghosted; released there = removed
+function setOff(obj, off) { if (!obj || obj.userData.off === off) return; obj.userData.off = off; gsap.to(obj.scale, { x: off ? 0.6 : 1, y: off ? 0.6 : 1, z: off ? 0.6 : 1, duration: 0.25, ease: 'power2.out' }); }
+function candleScale(o) { return o.group.scale.x || 1; }
+function moveCandle(c, x, y) {
+  const o = candleObjs.get(c.id); if (!o) return false;
+  const h = decorHit(x, y); if (!h || h.n.y < 0.7) return false; // candles stand on top surfaces only
+  const L = hitToLocal(h); if (!L) return false;
+  c.pos = { t: L.t, w: L.w, p: [L.p[0], r3(L.p[1] - 0.008), L.p[2]] }; c.s = c.s || r3(candleScale(o));
+  syncCandles(false); Sync.state(); return true;
+}
 
 let stroke = null, lastPipe = null, lastScreen = null;
 function pipeAt(h) {
@@ -1518,7 +1621,7 @@ function undo() {
   act('undo', 'Undid the last thing', c => `Undid ${c} things`); commit(); renderDock(false); updateNext();
 }
 function addCandle(k, d) {
-  if (S.candles.length >= 12) { toast('That’s a lot of candles. Twelve is the limit.'); return; }
+  if (S.candles.length >= 24) { toast('That’s a lot of candles. Twenty-four is the limit.'); return; }
   if (k === 'd' && S.candles.filter(c => c.k === 'd').length >= 4) { toast('Four digits max on one cake.'); return; }
   const c = { id: uid(), k, d }; S.candles.push(c); UI.undo.push({ type: 'candle', id: c.id });
   const digits = S.candles.filter(c => c.k === 'd').map(c => c.d).join('');
@@ -1683,8 +1786,8 @@ function openLetter() {
    ===================================================================== */
 const HINTS = {
   bake: 'Tap a tier to choose it, then pick its sponge, frosting and drip.',
-  decorate: 'Tap the cake to place, or drag to pipe. Drag the empty space to turn it.',
-  candles: 'Spell out your age. Tapers and sparklers are welcome too.',
+  decorate: 'Tap the cake to place. Drag anything to move it, or off the cake to take it away.',
+  candles: 'Spell out your age, then drag each candle wherever you like.',
   light: '',
 };
 let hintT;
@@ -1788,9 +1891,16 @@ stageEl.addEventListener('pointerdown', e => {
   if (SPECTATOR) return; Sound.init(); pointers.add(e.pointerId);
   if (pointers.size > 1) { endDrag(); controls.enabled = true; return; }
   down = [e.clientX, e.clientY];
-  if (S.chapter === 'decorate' && UI.tool) {
-    const h = decorHit(e.clientX, e.clientY);
-    if (h) { controls.enabled = false; if (UI.tool.startsWith('pipe')) { startPipe(h, e.clientX, e.clientY); drag = { type: 'pipe' }; } else { const t = placeTop(h); if (t) drag = { type: 'top', t }; } }
+  if (S.chapter === 'decorate') {
+    const ex = pickTop(e.clientX, e.clientY);
+    if (ex) { controls.enabled = false; drag = { type: 'top', t: ex, moved: true }; Sound.tick(); const o = topObjs.get(ex.id); if (o) gsap.fromTo(o.scale, { x: 1.12, y: 1.12, z: 1.12 }, { x: 1, y: 1, z: 1, duration: 0.35, ease: 'back.out(3)' }); }
+    else if (UI.tool) {
+      const h = decorHit(e.clientX, e.clientY);
+      if (h) { controls.enabled = false; if (UI.tool.startsWith('pipe')) { startPipe(h, e.clientX, e.clientY); drag = { type: 'pipe' }; } else { const t = placeTop(h); if (t) drag = { type: 'top', t }; } }
+    }
+  } else if (S.chapter === 'candles') {
+    const c = pickCandle(e.clientX, e.clientY);
+    if (c) { const o = candleObjs.get(c.id); controls.enabled = false; drag = { type: 'candle', c }; o.dragging = true; c.s = c.s || r3(candleScale(o)); Sound.tick(); gsap.to(o.group.position, { y: '+=0.06', duration: 0.2, ease: 'power2.out' }); }
   } else if (S.chapter === 'light' && matchState.lit) { controls.enabled = false; drag = { type: 'match' }; moveMatchTo(e.clientX, e.clientY); }
 }, { capture: true });
 let lastPW = null;
@@ -1799,9 +1909,23 @@ window.addEventListener('pointermove', e => {
   if (matchState.dragging || (drag && drag.type === 'match')) moveMatchTo(e.clientX, e.clientY);
   if (!drag) { if (S.chapter !== 'intro' && e.target === renderer.domElement) { const h = decorHit(e.clientX, e.clientY); lastPW = h ? h.point.clone() : null; } return; }
   if (drag.type === 'pipe') continuePipe(e.clientX, e.clientY);
-  else if (drag.type === 'top') { const h = decorHit(e.clientX, e.clientY); if (h) { moveTop(drag.t, h); lastPW = h.point.clone(); } }
+  else if (drag.type === 'top') { const h = decorHit(e.clientX, e.clientY); drag.off = !h; setOff(topObjs.get(drag.t.id), !h); if (h) { moveTop(drag.t, h); lastPW = h.point.clone(); } }
+  else if (drag.type === 'candle') { const ok = moveCandle(drag.c, e.clientX, e.clientY); drag.off = !ok; const o = candleObjs.get(drag.c.id); setOff(o && o.group, !ok); }
 });
-function endDrag() { if (!drag) return; if (drag.type === 'pipe') endPipe(); else if (drag.type === 'top') commit(); drag = null; }
+function endDrag() {
+  if (!drag) return; const d = drag; drag = null;
+  if (d.type === 'pipe') endPipe();
+  else if (d.type === 'top') {
+    if (d.off) { S.tops = S.tops.filter(t => t.id !== d.t.id); Sound.puff(); act('rm', 'Took something off the cake', c => `Took ${c} things off the cake`); }
+    else Sound.pop();
+    commit(); renderDock(false);
+  } else if (d.type === 'candle') {
+    const o = candleObjs.get(d.c.id); if (o) o.dragging = false;
+    if (d.off) { S.candles = S.candles.filter(c => c.id !== d.c.id); Sound.puff(); act('rmc', 'Took a candle off', c => `Took ${c} candles off`); }
+    else { act('mvc', 'Moved a candle', c => `Moved candles around (${c})`); Sound.pop(); }
+    commit(); renderDock(false); updateNext();
+  }
+}
 function onUp(e) {
   if (SPECTATOR) return; pointers.delete(e.pointerId); const wasDrag = !!drag; endDrag(); matchState.dragging = false;
   if (!wasDrag && down && S.chapter === 'bake' && Math.hypot(e.clientX - down[0], e.clientY - down[1]) < 8 && e.target === renderer.domElement) {
@@ -1993,6 +2117,9 @@ function loop() {
    BOOT
    ===================================================================== */
 function onResize() { renderer.setSize(innerWidth, innerHeight); applyView(); }
+// the stage must never scroll (iOS Safari and focus changes can nudge fixed, overflow:hidden containers)
+const lockScroll = el => el.addEventListener('scroll', () => { if (el.scrollTop || el.scrollLeft) { el.scrollTop = 0; el.scrollLeft = 0; } }, { passive: true });
+lockScroll($('#app')); window.addEventListener('scroll', () => { if (scrollX || scrollY) scrollTo(0, 0); }, { passive: true });
 window.addEventListener('resize', onResize); window.addEventListener('orientationchange', () => setTimeout(onResize, 300));
 applyView(); applyAmb(); updateSteps();
 fontsReady.then(() => setTimeout(makeThumbs, 30));
